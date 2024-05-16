@@ -24,7 +24,7 @@ with WithNtoMMemInterface
 with WithDataflowPE
 with WithNToMDataflowToMem
 with WithBRAMLikeMEM {
-
+    // 获取银行位数
     def get_bank_bits(n_banks: Int): Int = {
         if (n_banks > 1)
             return log2Ceil(n_banks)
