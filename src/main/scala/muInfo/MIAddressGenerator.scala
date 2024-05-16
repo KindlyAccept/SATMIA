@@ -1,4 +1,4 @@
-package spatial_templates.spmv
+package spatial_templates.muInfo
 
 import chisel3._
 import chisel3.util._
@@ -8,6 +8,7 @@ import spatial_templates.me._
 import spatial_templates.mi._
 import spatial_templates.dfe._
 
+
 /**
   * This bundle collects the control signals meant to be passed through directly outside of the DataflowPE
   * TODO: this could be SpMVAddrGenCtrl 
@@ -15,7 +16,7 @@ import spatial_templates.dfe._
   * @param addr_width
   * @param n_banks
   */
-class SpMVAddrGenPassthroughIO(addr_width: Int, data_width : Int, n_banks: Int) extends AddressGeneratorPassthroughIO {
+class MIAddrGenPassthroughIO(addr_width: Int, data_width : Int, n_banks: Int) extends AddressGeneratorPassthroughIO {
     def get_bank_bits(n_banks: Int) : Int = {
         if(n_banks > 1)
             return log2Ceil(n_banks) 
@@ -34,7 +35,7 @@ class SpMVAddrGenPassthroughIO(addr_width: Int, data_width : Int, n_banks: Int) 
     val reset_setup = Input(Bool())
 }
 
-class SpMVAddrGenCtrl(addr_width: Int, data_width : Int, n_banks: Int) extends Bundle {
+class MIAddrGenCtrl(addr_width: Int, data_width : Int, n_banks: Int) extends Bundle {
     def get_bank_bits(n_banks: Int) : Int = {
         if(n_banks > 1)
             return log2Ceil(n_banks) 
@@ -61,7 +62,7 @@ class SpMVAddrGenCtrl(addr_width: Int, data_width : Int, n_banks: Int) extends B
   * 这是一个稀疏矩阵-向量乘法 (Sparse Matrix-Vector Multiplication, SpMV) 地址生成器。
   */
   // addr_width、data_width、n_banks 和 bank 是该类的构造参数。
-class SpMVAddressGenerator(addr_width: Int, data_width : Int, n_banks: Int, bank: Int) 
+class MIAddressGenerator(addr_width: Int, data_width : Int, n_banks: Int, bank: Int) 
     extends QueueAddressGenerator(4, 1, addr_width, data_width, n_banks, bank)
     with AddrGenWithPassthrough
     with AddrGenWithDFE 
@@ -74,8 +75,8 @@ class SpMVAddressGenerator(addr_width: Int, data_width : Int, n_banks: Int, bank
                 return 0
     }
     // ctrl_io 和 pe_ctrl_io 分别是 SpMVAddrGenCtrl 和 SpMVAddrGenPassthroughIO 的实例，用于控制输入输出。
-    val ctrl_io = IO(new SpMVAddrGenCtrl(addr_width, data_width, n_banks))
-    val pe_ctrl_io = IO(new SpMVAddrGenPassthroughIO(addr_width, data_width, n_banks))
+    val ctrl_io = IO(new MIAddrGenCtrl(addr_width, data_width, n_banks))
+    val pe_ctrl_io = IO(new MIAddrGenPassthroughIO(addr_width, data_width, n_banks))
 
     // 状态寄存器定义：这些状态寄存器保存当前问题的维度和处理状态。
     // Status registers encoding the current problem dimensions
@@ -176,7 +177,6 @@ class SpMVAddressGenerator(addr_width: Int, data_width : Int, n_banks: Int, bank
     val x_idx = mem_io.dataResponses(2).bits 
     // Bank bits: i / chunk_size shifted to the msb of the address
     val x_bank_mask = ((x_idx >> log_xchunk) << addr_width)(addr_width+get_bank_bits(n_banks)+1,0)
-    
     when(mem_io.dataResponses(2).valid && mem_io.dataResponses(2).ready && mem_io.addressRequests(0).ready) {
         // Offset: i & (not bank bits)
         val x_offset = (x_idx & ((xlen_pow2) - 1.U))(addr_width+get_bank_bits(n_banks)+1,0)
@@ -279,12 +279,12 @@ class SpMVAddressGenerator(addr_width: Int, data_width : Int, n_banks: Int, bank
     }
 }
 
-trait WithSpMVAddrGen extends DataflowPE 
+trait WithMIAddrGen extends DataflowPE 
     with WithAddrGenToMem
     //with WithPassthroughDFE
     with WithPassthroughAddrGen
     with WithAddrGenToDFE {
-    val pe_addr_gen: SpMVAddressGenerator
+    val pe_addr_gen: MIAddressGenerator
     val pe_dfe: FloatMultAccEngine
     /**
       * Handles interconnecting this component to the DataflowPE outer interface.

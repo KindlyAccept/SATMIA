@@ -7,7 +7,8 @@ import spatial_templates.me._
 abstract class MEInterface() extends Module {}
 
 
-
+// 这个类定义了内存端口的基本I/O接口，包括写入控制、地址、输入数据、有效信号和输出数据。
+// 这是内存操作的基本接口，用于数据的读写操作。
 class MemPortIO(val p_width: Int, val addr_width: Int) extends Bundle {
   val write = Input(Bool())
   val addr = Input(UInt(addr_width.W))
@@ -16,6 +17,9 @@ class MemPortIO(val p_width: Int, val addr_width: Int) extends Bundle {
   val dataOut = Output(UInt(p_width.W))
 }
 
+// 这个类扩展了 MemPortIO，用于管理与双端口SRAM交互的多个生产者的读写请求。
+// 它包括两个输出端口（portOut_1 和 portOut_2），以及一个输入序列inSeq，这是一个向量，包含了多个内存请求源。
+// 还有 reqDone 向量，用于指示每个请求是否完成。
 class PortSelIO(val p_width: Int, val addr_width: Int, n_inputs: Int)
     extends Bundle {
   // Outputs directed to the SRAM ports
@@ -27,6 +31,9 @@ class PortSelIO(val p_width: Int, val addr_width: Int, n_inputs: Int)
   val reqDone = Vec(n_inputs, Output(Bool()))
 }
 
+// 这是一个模块，用于从多个请求源中选择请求，并分配到两个内存银行的端口。
+// 它使用优先编码（PriorityEncoder）和优先选择多路复用器（PriorityMux）来确定哪个请求将被送往哪个端口。
+// 这是处理并行内存请求并减少访问冲突的关键部分。
 class TwoBankSelector(val p_width: Int, val addr_width: Int, n_inputs: Int)
     extends Module {
   val io = IO(new PortSelIO(p_width, addr_width, n_inputs))
@@ -69,12 +76,14 @@ class TwoBankSelector(val p_width: Int, val addr_width: Int, n_inputs: Int)
   }
 }
 
+
 class MemRequestIO(val p_width: Int, val addr_width: Int) extends Bundle {
   val write = Input(Bool())
   val addr = Input(UInt(addr_width.W))
   val dataIn = Input(UInt(p_width.W))
 }
 
+// BankAccessIO 定义了与多个内存银行交互所需的接口，
 class BankAccessIO(val p_width: Int, val addr_width: Int, n_banks: Int)
     extends Bundle {
   // Output port to each SRAM bank
@@ -91,6 +100,7 @@ class BankAccessIO(val p_width: Int, val addr_width: Int, n_banks: Int)
   val empty = Output(Bool())
 }
 
+// BankAccessQueue 则实现了一个队列系统，用于缓冲和调度来自处理单元的内存请求。这样做可以平衡请求负载并优化内存访问效率。
 class BankAccessQueue(
     val p_width: Int,
     val addr_width: Int,

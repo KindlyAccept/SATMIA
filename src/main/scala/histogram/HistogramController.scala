@@ -1,0 +1,5 @@
+package histogram
+
+class HistogramController {
+  
+}
