@@ -2,11 +2,12 @@ package spatial_templates.histogram
 
 import chisel3._
 import chiseltest._
+import chiseltest.simulator.WriteVcdAnnotation
 import org.scalatest.flatspec.AnyFlatSpec
 
-class HistogramEngineTest extends AnyFlatSpec with ChiselScalatestTester {
+class HistogramEngineTester extends AnyFlatSpec with ChiselScalatestTester {
   "HistogramEngine" should "accumulate histogram correctly" in {
-    test(new HistogramEngine(queue_size = 16, data_width = 8)) { dut =>
+    test(new HistogramEngine(queue_size = 16, data_width = 8)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
       // 重置直方图计数器
       dut.io.ctrl_io.resetCounter.bits.poke(0.U)
       dut.io.ctrl_io.resetCounter.valid.poke(true.B)

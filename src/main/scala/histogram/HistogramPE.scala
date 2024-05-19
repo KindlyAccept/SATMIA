@@ -31,6 +31,6 @@ class HistogramPE(
     io.ctrl_cmd.ready := true.B 
     io.idle := !pe_addr_gen.mem_io.generatingRequests && pe_dfe.io.ctrl_io.idle
 
-    // // 连接内存接口
+    // 连接内存接口
     pe_dfe.io.inData <> pe_addr_gen.mem_io.dataResponses(0)
 }

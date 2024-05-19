@@ -47,25 +47,35 @@ class HistogramAddressGenerator(addr_width: Int, data_width: Int, n_banks: Int, 
     with AddrGenWithME {
 
     // 获取 bank 的位数
-    def get_bank_bits(n_banks: Int): Int = {
-        if (n_banks > 1)
-            return log2Ceil(n_banks)
-        else
-            return 0
-    }
+    // def get_bank_bits(n_banks: Int): Int = {
+    //     if (n_banks > 1)
+    //         return log2Ceil(n_banks)
+    //     else
+    //         return 0
+    // }
 
     val ctrl_io = IO(new HistogramAddrGenCtrl(addr_width, data_width, n_banks))
     val pe_ctrl_io = IO(new HistogramAddrGenPassthroughIO(addr_width, data_width, n_banks))
 
+    // // 状态寄存器编码当前问题维度
+    // val base_data = Reg(UInt((addr_width + get_bank_bits(n_banks)).W))
+    // val base_hist = Reg(UInt((addr_width + get_bank_bits(n_banks)).W))
+    // val num_bins = Reg(UInt((addr_width + get_bank_bits(n_banks)).W))
+
+    // // 当前正在处理的数据和 bin 计数
+    // val curr_data = Reg(UInt((addr_width + get_bank_bits(n_banks)).W))
+    // val curr_bin = Reg(UInt((addr_width + get_bank_bits(n_banks)).W))
+    // val bin_counts = Reg(UInt((addr_width + get_bank_bits(n_banks)).W))
+
     // 状态寄存器编码当前问题维度
-    val base_data = Reg(UInt((addr_width + get_bank_bits(n_banks)).W))
-    val base_hist = Reg(UInt((addr_width + get_bank_bits(n_banks)).W))
-    val num_bins = Reg(UInt((addr_width + get_bank_bits(n_banks)).W))
+    val base_data = Reg(UInt((addr_width).W))
+    val base_hist = Reg(UInt((addr_width).W))
+    val num_bins = Reg(UInt((addr_width).W))
 
     // 当前正在处理的数据和 bin 计数
-    val curr_data = Reg(UInt((addr_width + get_bank_bits(n_banks)).W))
-    val curr_bin = Reg(UInt((addr_width + get_bank_bits(n_banks)).W))
-    val bin_counts = Reg(UInt((addr_width + get_bank_bits(n_banks)).W))
+    val curr_data = Reg(UInt((addr_width).W))
+    val curr_bin = Reg(UInt((addr_width).W))
+    val bin_counts = Reg(UInt((addr_width).W))
 
     // 初始化寄存器
     when(pe_ctrl_io.reset_setup) {
