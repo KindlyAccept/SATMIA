@@ -1,6 +1,9 @@
-# Spatial Templates Library
+# A Spatial Architecture Template for Mutual Information Acceleration
 
-Spatial architectural templates generator repository.
+**ID26:** A Spatial Architecture Template for Mutual Information Acceleration 
+**Abstract:** Mutual Information (MI) is a widespread similarity metric that drives the optimization of image registration procedures. Though extremely complex, this project aims to design a template spatial architecture through the SATL library and compare against the current state-of-the-art HLS-based accelerator. 
+
+**Keywords:** FPGA, Similarity Metric, Spatial Architectures,, Mutual Information, Chisel
 
 ## Setup
 This repo is intended to be used within the Chipyard framework: https://github.com/ucb-bar/chipyard .
