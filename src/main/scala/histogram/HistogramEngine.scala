@@ -43,19 +43,22 @@ class HistogramEngine(queue_size: Int = 16, data_width: Int = 8) extends Module 
         io.ctrl_io.resetCounter.ready := true.B
     } .otherwise {
         // 处理输入数据
-        when(inQueue.io.deq.valid && io.outData.ready) {                    // 添加io.outData.ready确保消费者准备好接收数据
+        when(inQueue.io.deq.valid) {                    // 添加io.outData.ready确保消费者准备好接收数据
             val newGrayValue = inQueue.io.deq.bits
 
-            when(firstValue || newGrayValue === currentGrayValue) {         // 当为第一个灰度值或者旧的灰度值时
+            when(firstValue || (newGrayValue === currentGrayValue)) {         // 当为第一个灰度值或者旧的灰度值时
             // 灰度值相同（或者是第一个），仅累加计数
                 currentCount := currentCount + 1.U                          // 增加 Histogram 中对应灰度值 bin 的计数
                 firstValue := false.B
+                when(firstValue) {
+                    currentGrayValue := newGrayValue
+                }
             } .otherwise {
             // 灰度值不同，更新Histogram寄存器并重置当前值和计数
                 histogram(currentGrayValue) := histogram(currentGrayValue) + currentCount   // 将 inQueue 的输出作为索引，从 histogram 中读取对应的计数，传递给 histQueue 的输入
                 currentGrayValue := newGrayValue
                 currentCount := 1.U
-            }
+            }   
             inQueue.io.deq.ready := true.B
         } .otherwise {
             inQueue.io.deq.ready := false.B
@@ -70,7 +73,6 @@ class HistogramEngine(queue_size: Int = 16, data_width: Int = 8) extends Module 
         // 输出直方图
         io.outData.bits := histogram                                    // 将直方图寄存器中所有 bin 的计数相加，作为 Output 输出数据。
         io.outData.valid := !inQueue.io.deq.valid && firstValue         // 表示当 firstValue 为 false 时，输出数据有效。
-        // io.outData.valid := true.B
         io.ctrl_io.idle := !inQueue.io.enq.valid && firstValue          // 当没有输入数据时，设置 idle 空闲信号为真。
     }    
 }
