@@ -1,6 +1,5 @@
 package spatial_templates.histogram
 
-
 import chisel3._
 import chisel3.util._
 import spatial_templates.dfe._
@@ -74,5 +73,92 @@ class HistogramEngine(queue_size: Int = 16, data_width: Int = 8) extends Module 
         io.outData.bits := histogram                                    // 将直方图寄存器中所有 bin 的计数相加，作为 Output 输出数据。
         io.outData.valid := !inQueue.io.deq.valid && firstValue         // 表示当 firstValue 为 false 时，输出数据有效。
         io.ctrl_io.idle := !inQueue.io.enq.valid && firstValue          // 当没有输入数据时，设置 idle 空闲信号为真。
+    }    
+}
+
+
+class JointHistogramEngine(queue_size: Int = 16, data_width: Int = 8) extends Module {
+    val io = IO(new Bundle {
+        val inDataX = Flipped(Decoupled(UInt(data_width.W)))             // 输入数据 X 接口
+        val inDataY = Flipped(Decoupled(UInt(data_width.W)))             // 输入数据 Y 接口
+        val outData = Decoupled(Vec(16, Vec(16, UInt(data_width.W))))  // 输出接口，输出联合直方图数据，应为 256x256 的二维向量        
+        val ctrl_io = new MultAccEngineCtrlIO()                          // 控制接口，其状态：包含重置计数器和空闲信号（利用寄存器进行存储标注）
+    })
+
+    // 联合直方图寄存器：计数器，每个 (X, Y) 对应一个寄存器
+    val histogram = RegInit(VecInit(Seq.fill(16)(VecInit(Seq.fill(16)(0.U(data_width.W))))))  // 二维向量寄存器，初始化为全零，存储直方图的每个 bin 的计数
+
+    // 当前处理的 X 值和 Y 值及其计数
+    val currentXValue = RegInit(0.U(data_width.W))
+    val currentYValue = RegInit(0.U(data_width.W))
+    val currentCount = RegInit(0.U(data_width.W))
+    val firstValue = RegInit(true.B)
+
+    // 队列用于实现流水线
+    val inQueueX = Module(new Queue(UInt(data_width.W), queue_size))     // 存储输入数据 X，queue_size 代表队列大小
+    val inQueueY = Module(new Queue(UInt(data_width.W), queue_size))     // 存储输入数据 Y，queue_size 代表队列大小
+
+    inQueueX.io.enq <> io.inDataX                                        // 将输入数据 io.inDataX 连接到 inQueueX 的输入
+    inQueueY.io.enq <> io.inDataY                                        // 将输入数据 io.inDataY 连接到 inQueueY 的输入
+
+    // 默认初始化
+    io.outData.bits := histogram
+    io.outData.valid := false.B
+    io.ctrl_io.idle := false.B
+    io.ctrl_io.resetCounter.ready := false.B
+    inQueueX.io.deq.ready := false.B
+    inQueueY.io.deq.ready := false.B
+
+    // 重置计数器/寄存器
+    when(io.ctrl_io.resetCounter.valid) {
+        for (i <- 0 until 16) {
+            for (j <- 0 until 16) {
+                histogram(i)(j) := 0.U
+            }
+        }
+        currentXValue := 0.U
+        currentYValue := 0.U
+        currentCount := 0.U
+        firstValue := true.B
+        io.ctrl_io.idle := true.B
+        io.ctrl_io.resetCounter.ready := true.B
+    } .otherwise {
+        // 处理输入数据
+        when(inQueueX.io.deq.valid && inQueueY.io.deq.valid) {            // 添加 io.outData.ready 确保消费者准备好接收数据
+            val newXValue = inQueueX.io.deq.bits
+            val newYValue = inQueueY.io.deq.bits
+
+            when(firstValue || (newXValue === currentXValue && newYValue === currentYValue)) {
+                // (X, Y) 值相同（或者是第一个），仅累加计数
+                currentCount := currentCount + 1.U
+                firstValue := false.B
+                when(firstValue) {
+                    currentXValue := newXValue
+                    currentYValue := newYValue
+                }
+            } .otherwise {
+                // (X, Y) 值不同，更新 histogram 寄存器并重置当前值和计数
+                histogram(currentXValue)(currentYValue) := histogram(currentXValue)(currentYValue) + currentCount
+                currentXValue := newXValue
+                currentYValue := newYValue
+                currentCount := 1.U
+            }
+            inQueueX.io.deq.ready := true.B
+            inQueueY.io.deq.ready := true.B
+        } .otherwise {
+            inQueueX.io.deq.ready := false.B
+            inQueueY.io.deq.ready := false.B
+        }
+
+        // 最后更新，确保所有数据都写入 histogram
+        when(!inQueueX.io.deq.valid && !inQueueY.io.deq.valid && !firstValue) {
+            histogram(currentXValue)(currentYValue) := histogram(currentXValue)(currentYValue) + currentCount
+            firstValue := true.B
+        }
+
+        // 输出直方图
+        io.outData.bits := histogram                                    // 将直方图寄存器中所有 bin 的计数相加，作为 Output 输出数据
+        io.outData.valid := !inQueueX.io.deq.valid && !inQueueY.io.deq.valid && firstValue // 表示当 firstValue 为 false 时，输出数据有效
+        io.ctrl_io.idle := !inQueueX.io.enq.valid && !inQueueY.io.enq.valid && firstValue  // 当没有输入数据时，设置 idle 空闲信号为真
     }    
 }

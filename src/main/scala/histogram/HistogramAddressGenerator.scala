@@ -46,26 +46,33 @@ class HistogramAddressGenerator(addr_width: Int, data_width: Int, n_banks: Int, 
     with AddrGenWithDFE
     with AddrGenWithME {
 
-    // 获取 bank 的位数
-    // def get_bank_bits(n_banks: Int): Int = {
-    //     if (n_banks > 1)
-    //         return log2Ceil(n_banks)
-    //     else
-    //         return 0
-    // }
-
     val ctrl_io = IO(new HistogramAddrGenCtrl(addr_width, data_width, n_banks))
     val pe_ctrl_io = IO(new HistogramAddrGenPassthroughIO(addr_width, data_width, n_banks))
 
-    // // 状态寄存器编码当前问题维度
-    // val base_data = Reg(UInt((addr_width + get_bank_bits(n_banks)).W))
-    // val base_hist = Reg(UInt((addr_width + get_bank_bits(n_banks)).W))
-    // val num_bins = Reg(UInt((addr_width + get_bank_bits(n_banks)).W))
+    // 初始化 ctrl_io 和 mem_io 中的所有信号为 DontCare
+    ctrl_io.hist_vals.ready := DontCare
+    ctrl_io.data_vals.valid := DontCare
+    ctrl_io.data_vals.bits := DontCare
+    ctrl_io.hist_vals.bits := DontCare
+    ctrl_io.bin_counts.valid := DontCare
+    ctrl_io.bin_counts.bits := DontCare
 
-    // // 当前正在处理的数据和 bin 计数
-    // val curr_data = Reg(UInt((addr_width + get_bank_bits(n_banks)).W))
-    // val curr_bin = Reg(UInt((addr_width + get_bank_bits(n_banks)).W))
-    // val bin_counts = Reg(UInt((addr_width + get_bank_bits(n_banks)).W))
+    for (i <- 0 until mem_io.addressRequests.size) {
+        mem_io.addressRequests(i).valid := DontCare
+        mem_io.addressRequests(i).bits := DontCare
+    }
+
+    for (i <- 0 until mem_io.dataResponses.size) {
+        mem_io.dataResponses(i).ready := DontCare
+    }
+
+    for (i <- 0 until mem_io.writeRequests.size) {
+        mem_io.writeRequests(i).valid := DontCare
+        mem_io.writeRequests(i).bits.address := DontCare
+        mem_io.writeRequests(i).bits.data := DontCare
+    }
+
+    mem_io.generatingRequests := DontCare // 确保 mem_io.generatingRequests 被初始化
 
     // 状态寄存器编码当前问题维度
     val base_data = Reg(UInt((addr_width).W))
@@ -89,17 +96,17 @@ class HistogramAddressGenerator(addr_width: Int, data_width: Int, n_banks: Int, 
 
     // 请求和响应逻辑：它支持流水线操作，因为地址的计算和请求发起可以与数据的实际读取和处理并行进行。
     // 1. 处理数据的读取 Request
-    when(mem_io.addressRequests(0).ready) {							// 当内存接口准备好接收地址请求时，触发请求逻辑
-        mem_io.addressRequests(0).bits := base_data + curr_data		// 设置请求的内存地址：基地址+便宜量，连续读取数据。
-        mem_io.addressRequests(0).valid := true.B					// 将请求的有效位设置为 true，表明当前有一个有效的内存读取请求待处理。
-        curr_data := curr_data + 1.U								// 更新当前数据的索引，准备下一次读取。这个操作保证了每次发起的内存读取请求都是针对连续的地址。
+    when(mem_io.addressRequests(0).ready) {
+        mem_io.addressRequests(0).bits := base_data + curr_data
+        mem_io.addressRequests(0).valid := true.B
+        curr_data := curr_data + 1.U
     } .otherwise {
-        mem_io.addressRequests(0).bits := DontCare					// 如果内存接口不准备好接收请求，则无所谓这个请求参数
-        mem_io.addressRequests(0).valid := false.B					// 并确保请求的有效位为 False
+        mem_io.addressRequests(0).bits := DontCare
+        mem_io.addressRequests(0).valid := false.B
     }
 
     // 2. 处理数据读取 Response
-    when(mem_io.dataResponses(0).valid) {                           // 当内存接口的数据响应有效时，触发响应处理逻辑
+    when(mem_io.dataResponses(0).valid) {
         ctrl_io.data_vals.bits := mem_io.dataResponses(0).bits
         ctrl_io.data_vals.valid := true.B
         mem_io.dataResponses(0).ready := ctrl_io.data_vals.ready
@@ -129,7 +136,6 @@ class HistogramAddressGenerator(addr_width: Int, data_width: Int, n_banks: Int, 
         ctrl_io.bin_counts.valid := false.B
     }
 }
-
 
 trait WithHistogramAddrGen extends DataflowPE 
     with WithAddrGenToMem
