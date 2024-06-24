@@ -8,8 +8,9 @@ import spatial_templates.me._
 import spatial_templates.mi._
 import spatial_templates.dfe._
 
-// 定义 Histogram PE 的数据通路
-class HistogramAddrGenPassthroughIO(addr_width: Int, data_width: Int, n_banks: Int) extends AddressGeneratorPassthroughIO {
+// 定义 Histogram 的数据通路 ：
+// TODO：这应该是与Histogram内存之间的通信，可能后续不需要多bank
+class HistogramAddrGenPassthroughIO(addr_width: Int = 32, data_width: Int, n_banks: Int) extends AddressGeneratorPassthroughIO {
     def get_bank_bits(n_banks: Int): Int = {
         if (n_banks > 1)
             return log2Ceil(n_banks)
@@ -18,7 +19,7 @@ class HistogramAddrGenPassthroughIO(addr_width: Int, data_width: Int, n_banks: I
     }
 	// 数据流接口
 	// get_bank_bits(n_banks) 主要用于增加地址位数，以便于在多银行系统中正确地寻址，而与传输的数据位数无关。
-    val in_data = Input(UInt((addr_width + get_bank_bits(n_banks)).W))	
+    val in_data = Input(UInt((addr_width + get_bank_bits(n_banks)).W))	         
     val in_hist_addr = Input(UInt((addr_width + get_bank_bits(n_banks)).W))
     val in_bins = Input(UInt((addr_width + get_bank_bits(n_banks)).W))
 	
@@ -26,6 +27,7 @@ class HistogramAddrGenPassthroughIO(addr_width: Int, data_width: Int, n_banks: I
 }
 
 // 定义 Histogram PE 与其控制器之间的通信接口
+// TODO：这应该是将数据给到DFE：当前数据、当前直方图灰度、当前灰度计数
 class HistogramAddrGenCtrl(addr_width: Int, data_width: Int, n_banks: Int) extends Bundle {
     def get_bank_bits(n_banks: Int): Int = {
         if (n_banks > 1)
@@ -95,7 +97,7 @@ class HistogramAddressGenerator(addr_width: Int, data_width: Int, n_banks: Int, 
     }
 
     // 请求和响应逻辑：它支持流水线操作，因为地址的计算和请求发起可以与数据的实际读取和处理并行进行。
-    // 1. 处理数据的读取 Request
+    // 1. 向内存发送数据读取 Request
     when(mem_io.addressRequests(0).ready) {
         mem_io.addressRequests(0).bits := base_data + curr_data
         mem_io.addressRequests(0).valid := true.B
@@ -105,7 +107,7 @@ class HistogramAddressGenerator(addr_width: Int, data_width: Int, n_banks: Int, 
         mem_io.addressRequests(0).valid := false.B
     }
 
-    // 2. 处理数据读取 Response
+    // 2. 从内存接受数据 Response
     when(mem_io.dataResponses(0).valid) {
         ctrl_io.data_vals.bits := mem_io.dataResponses(0).bits
         ctrl_io.data_vals.valid := true.B
@@ -116,7 +118,8 @@ class HistogramAddressGenerator(addr_width: Int, data_width: Int, n_banks: Int, 
         mem_io.dataResponses(0).ready := false.B
     }
 
-    // 处理直方图 bin 的写请求
+    // 3. 处理直方图 bin 的写请求
+    //  直方图处理完成后再统一写入，遍历所有bin
     when(mem_io.writeRequests(0).ready && ctrl_io.hist_vals.valid) {
         mem_io.writeRequests(0).bits.address := base_hist + curr_bin
         mem_io.writeRequests(0).bits.data := ctrl_io.hist_vals.bits
@@ -128,7 +131,7 @@ class HistogramAddressGenerator(addr_width: Int, data_width: Int, n_banks: Int, 
         mem_io.writeRequests(0).valid := false.B
     }
 
-    // 更新 bin 计数
+    // 4. 更新 bin 计数
     when(ctrl_io.bin_counts.ready) {
         bin_counts := ctrl_io.bin_counts.bits
         ctrl_io.bin_counts.valid := true.B
