@@ -261,13 +261,12 @@ class FixedPointHistogramEngine(queue_size: Int = 16, data_width: Int = 8, binar
 }
 
 
-
 class FixedPointJointHistogramEngine(queue_size: Int = 16, data_width: Int = 8, binary_point: Int = 8) extends Module {
     val io = IO(new Bundle {
         val inDataX = Flipped(Decoupled(FixedPoint(data_width.W, binary_point.BP)))            // 输入数据 X 接口
         val inDataY = Flipped(Decoupled(FixedPoint(data_width.W, binary_point.BP)))            // 输入数据 Y 接口
-        val outData = Decoupled(Vec(16, Vec(16, UInt(data_width.W))))  // 输出接口，输出联合直方图数据，应为 256x256 的二维向量        
-        val ctrl_io = new MultAccEngineCtrlIO()                          // 控制接口，其状态：包含重置计数器和空闲信号（利用寄存器进行存储标注）
+        val outData = Decoupled(Vec(16, Vec(16, UInt(data_width.W))))       // 输出接口，输出联合直方图数据，应为 256x256 的二维向量        
+        val ctrl_io = new MultAccEngineCtrlIO()                             // 控制接口，其状态：包含重置计数器和空闲信号（利用寄存器进行存储标注）
     })
 
     // 默认初始化所有信号，避免未初始化问题

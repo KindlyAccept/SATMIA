@@ -5,7 +5,7 @@ import chisel3.util._
 import spatial_templates.pe._
 import spatial_templates.dfe._
 
-class MIPE(
+class EntropyPE(
     id: ElemId,
     io_bundle: CtrlInterfaceIO,
     p_width : Int,
